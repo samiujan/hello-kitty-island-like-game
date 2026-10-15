@@ -152,10 +152,15 @@ function buildSky(g: THREE.Group, rand2: () => number): THREE.Group {
   const dome = new THREE.Mesh(new THREE.SphereGeometry(150, 32, 20), skyMat)
   g.add(dome)
 
-  // big fluffy clouds — rounded puffs, flattened bottoms, cream white
+  // big fluffy clouds — rounded puffs, flattened bottoms, cream white.
+  // Soft and see-through: the camera can end up inside one, and an opaque puff
+  // fills the whole screen with flat colour when it does.
   const drift = new THREE.Group()
   const cloudMat = matte('#fffdf6', { roughness: 1, emissive: '#fff6ea', emissiveIntensity: 0.35 })
-  ;(cloudMat as THREE.MeshStandardMaterial).fog = false
+  cloudMat.fog = false
+  cloudMat.transparent = true
+  cloudMat.opacity = 0.62
+  cloudMat.depthWrite = false // let the puffs blend into each other
 
   const cumulus = (cx: number, cy: number, cz: number, s: number, elong = 1.4): void => {
     const cloud = new THREE.Group()
@@ -1373,6 +1378,9 @@ function buildClouds(g: THREE.Group): void {
     [26, 2.5, 8, 2.2], [-27, 3.5, -2, 2.6], [2, 5.5, -24, 3.0],
   ]
   const cloudMat = matte(PAL.cloud, { roughness: 1, emissive: PAL.cloud, emissiveIntensity: 0.25 })
+  cloudMat.transparent = true
+  cloudMat.opacity = 0.55
+  cloudMat.depthWrite = false
   for (const [x, y, z, s] of spots) {
     const cloud = new THREE.Group()
     cloud.position.set(x, y, z)
