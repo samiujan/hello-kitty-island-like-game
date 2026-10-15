@@ -10,6 +10,8 @@ import { updateFading } from './fading'
 import { Dialogue } from './dialogue'
 import { buildInteriors, type Interior } from './interiors'
 import { buildJetSki, JETSKI_PARKED, BEACH_SPOT, WATER_Y, RIDE_MIN_R, RIDE_MAX_R } from './beach'
+import { Story, type WarmId } from './story'
+import { Companion } from './companion'
 
 const TALK_RANGE = 2.3
 const ENTER_RANGE = 2.6
@@ -19,9 +21,10 @@ interface DoorTrigger {
   x: number
   z: number
   range: number
-  kind: 'interior' | 'jetski' | 'ride'
+  kind: 'interior' | 'jetski' | 'ride' | 'item'
   interior?: Interior
   ride?: 'merry' | 'swing' | 'slide' | 'bars'
+  item?: WarmId
 }
 
 type RideKind = NonNullable<DoorTrigger['ride']>
@@ -67,6 +70,8 @@ export class Game {
   private jetski: THREE.Group
   private jetskiState: JetskiState | null = null
   private activity: Activity | null = null
+  private story: Story
+  private companion: Companion
 
   constructor(container: HTMLElement) {
     // --- renderer ---
@@ -133,6 +138,14 @@ export class Game {
 
     this.dialogue = new Dialogue(document.getElementById('hud')!)
 
+    // --- story: "The Warmest Thing" ---
+    const hud = document.getElementById('hud')!
+    this.story = new Story(hud, this.scene, (x, z) => this.groundAt(x, z))
+    this.companion = new Companion()
+    this.companion.group.visible = false
+    this.scene.add(this.companion.group)
+    this.story.onHatch = () => this.companion.snapTo(this.player.position)
+
     // interiors + interactables (doors, jet ski, playground rides)
     this.interiors = buildInteriors()
     for (const i of [this.interiors.iceCream, this.interiors.barber, this.interiors.slushie, this.interiors.museum]) {
@@ -154,6 +167,10 @@ export class Game {
       { name: 'ride the slide', x: -15.3 * 1.28, z: 15.0 * 1.28, range: 4.2, kind: 'ride', ride: 'slide' },
       { name: 'cross the monkey bars', x: -10.7 * 1.28, z: 10.2 * 1.28, range: 3.6, kind: 'ride', ride: 'bars' },
     ]
+    // the story's findable warm things
+    for (const spot of this.story.itemSpots()) {
+      this.doors.push({ name: spot.label, x: spot.x, z: spot.z, range: 2.4, kind: 'item', item: spot.id })
+    }
     this.doorHint = document.createElement('div')
     this.doorHint.className = 'bubble hint'
     this.doorHint.style.display = 'none'
@@ -297,6 +314,7 @@ export class Game {
     this.activity = null
     this.player.rig.blob.visible = true
     this.player.rig.body.rotation.x = 0 // clear the seated/hanging pose
+    if (a.kind === 'bars') this.story.barsCrossed()
   }
 
   private tickRide(dt: number, t: number): void {
@@ -414,6 +432,7 @@ export class Game {
       let best: DoorTrigger | null = null
       let bestDist = 60
       for (const d of this.doors) {
+        if (!this.doorActive(d)) continue
         this.tmpV.set(d.x, 1.2, d.z).project(this.camera)
         if (this.tmpV.z > 1) continue
         const sx = (this.tmpV.x * 0.5 + 0.5) * window.innerWidth
@@ -496,6 +515,19 @@ export class Game {
 
     animateNPCs(this.npcs, t, this.player.position)
     animateWorld(this.world, t)
+    this.story.update(t)
+
+    // the museum egg keeps wobbling until it hatches
+    const egg = this.interiors.museum.focus?.mesh
+    if (egg) egg.rotation.z = Math.sin(t * 7) * this.story.eggWobble()
+
+    // Sprout trots along behind the kitten
+    this.companion.update(
+      dt,
+      this.player.position,
+      (x, z) => this.groundAt(x, z),
+      this.story.hatched() && !this.jetskiState && !this.activity,
+    )
     if (!indoors && !this.jetskiState) updateFading(this.camera, this.player.position, this.world.fadeables, dt)
 
     // keep the shadow camera centered on the player so shadows stay crisp
@@ -513,7 +545,9 @@ export class Game {
       } else if (this.activity) {
         if (this.activity.kind === 'merry' || this.activity.kind === 'swing') this.endRide()
       } else if (indoors) {
-        this.exitInterior()
+        const focus = (this.mode as Interior).focus
+        if (focus && this.player.position.distanceTo(focus.pos) < focus.range) this.story.interactEgg()
+        else this.exitInterior()
       } else {
         const door = this.nearestInteractable()
         if (door) this.triggerDoor(door)
@@ -543,7 +577,7 @@ export class Game {
         const npc = this.pendingTalk
         if (npc.rig.group.position.distanceTo(this.player.position) < TALK_RANGE) {
           this.pendingTalk = null
-          this.dialogue.talk(npc)
+          this.dialogue.talk(npc, this.story.linesFor(npc))
         }
       }
     }
@@ -571,7 +605,7 @@ export class Game {
         }
       }
       if (nearest && nearestDist < TALK_RANGE && this.input.pressed('KeyE')) {
-        this.dialogue.talk(nearest)
+        this.dialogue.talk(nearest, this.story.linesFor(nearest))
       }
       this.dialogue.update(this.camera, this.npcs, this.player.position)
     }
@@ -582,10 +616,16 @@ export class Game {
     this.input.endFrame()
   }
 
+  /** Items only count as interactable while their errand is active. */
+  private doorActive(d: DoorTrigger): boolean {
+    return d.kind !== 'item' || this.story.isSearching(d.item!)
+  }
+
   private nearestInteractable(): DoorTrigger | null {
     let door: DoorTrigger | null = null
     let doorDist = Infinity
     for (const d of this.doors) {
+      if (!this.doorActive(d)) continue
       const dist = Math.hypot(this.player.position.x - d.x, this.player.position.z - d.z)
       if (dist < doorDist) {
         doorDist = dist
@@ -601,6 +641,7 @@ export class Game {
     this.pendingTalk = null
     if (door.kind === 'interior') this.enterInterior(door)
     else if (door.kind === 'jetski') this.mountJetski()
+    else if (door.kind === 'item') this.story.pickup(door.item!)
     else this.startRide(door)
   }
 
@@ -643,6 +684,14 @@ export class Game {
     }
     if (indoors) {
       const i = this.mode as Interior
+      if (i.focus && this.player.position.distanceTo(i.focus.pos) < i.focus.range) {
+        this.setHint(
+          `<span class="text">tap / press <b>I</b> to ${i.focus.name}</span>`,
+          () => this.story.interactEgg(),
+          i.focus.pos,
+        )
+        return
+      }
       const nearDoor = this.player.position.distanceTo(i.doorAnchor) < 3.2
       if (nearDoor || now < this.doorHintUntil) {
         this.setHint('<span class="text">tap / press <b>I</b> to step outside</span>', () => this.exitInterior(), i.doorAnchor)

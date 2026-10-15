@@ -13,6 +13,8 @@ export interface Interior {
   spinners: THREE.Mesh[]
   /** One entry per wall: the game hides walls the camera looks from behind. */
   walls: WallPanel[]
+  /** Optional story interaction inside the room (the museum egg). */
+  focus?: { name: string; pos: THREE.Vector3; range: number; mesh?: THREE.Object3D }
 }
 
 export interface WallPanel {
@@ -651,6 +653,8 @@ function buildMuseumInterior(): Interior {
     doorAnchor: new THREE.Vector3(0, 2.0, ROOM_D / 2 - 0.2),
     spinners: [],
     walls: shell.walls,
+    // the story's egg — the game wobbles it and lets the kitten interact
+    focus: { name: 'look at the egg', pos: new THREE.Vector3(3.4, 0, 1.8), range: 2.6, mesh: egg },
   }
 }
 

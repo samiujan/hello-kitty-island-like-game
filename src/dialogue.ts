@@ -26,15 +26,15 @@ export class Dialogue {
     container.appendChild(this.hint)
   }
 
-  /** Show (or advance) a line from the nearest NPC. */
-  talk(npc: NPC): void {
+  /** Show (or advance) a line from the nearest NPC. Pass `lines` for story beats. */
+  talk(npc: NPC, lines: string[] = npc.lines): void {
     if (this.activeNPC === npc && performance.now() < this.hideAt) {
       this.activeLineIndex++
     } else {
       this.activeNPC = npc
       this.activeLineIndex = 0
     }
-    const line = npc.lines[this.activeLineIndex % npc.lines.length]
+    const line = lines[this.activeLineIndex % lines.length]
     this.bubble.innerHTML = `<div class="name" style="color:${nameColor(npc.species)}">${npc.name}</div><div class="text">${line}</div>`
     this.bubble.style.display = 'block'
     // restart the pop animation
