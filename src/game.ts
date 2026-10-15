@@ -90,8 +90,8 @@ export class Game {
       yaw: THREE.MathUtils.degToRad(14),
       pitch: THREE.MathUtils.degToRad(50),
       dist: 18.5,
-      tiltPitch: THREE.MathUtils.degToRad(10),
-      tiltDist: 11,
+      tiltPitch: THREE.MathUtils.degToRad(22),
+      tiltDist: 16,
       indoorPitch: THREE.MathUtils.degToRad(58),
       indoorDist: 10.5,
     })

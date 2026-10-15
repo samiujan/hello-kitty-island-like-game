@@ -54,9 +54,9 @@ const WARM: WarmDef[] = [
     ask: [
       "Oh! You've heard about the egg? Then of course I'll help.",
       "The warmest thing I know is honey tea — but I've run right out of honey!",
-      'The farm by the museum keeps jars of it. Go in through the gate — you will see it glowing!',
+      'The farm with the big red barn keeps jars of it. Go in through the gate — you will see it glowing!',
     ],
-    remind: ['The honey is at the farm, just inside the gate — follow the golden light!'],
+    remind: ['It is at the farm with the big red barn. Go in the gate and follow the golden light!'],
     carry: [
       'You found it! Wonderful.',
       'Here — a jar of honey tea, still warm. Take it to the egg.',
@@ -72,9 +72,9 @@ const WARM: WarmDef[] = [
     ask: [
       'You are helping the egg hatch? Pip is ON the case!',
       'Penguins know all about being cold. So I keep a sun-warmed pebble.',
-      'I left it on the beach, by the stripy umbrella. Waddle over and grab it?',
+      'I left it on the beach, by the sandcastle and the stripy umbrella. Waddle over and grab it?',
     ],
-    remind: ["It's on the beach! Look near the stripy umbrella."],
+    remind: ["It's on the beach! Look by the sandcastle and the stripy umbrella."],
     carry: ['My pebble! Still warm.', 'Take it — the egg needs it more than I do.'],
     found: 'You found the sun-warmed pebble! ☀️ Take it back to Pip.',
   },
@@ -87,9 +87,9 @@ const WARM: WarmDef[] = [
     ask: [
       'A cold egg?! Biscuit can fix that!',
       'I had the fuzziest blanket. But the wind took it while I was picnicking!',
-      'I saw it land by the pink blossom tree near the plaza. Can you get it?',
+      'I saw it land by the big pink blossom tree, near the round stones. Can you get it?',
     ],
-    remind: ['It blew toward the blossom tree, by the plaza!'],
+    remind: ['It blew toward the big pink blossom tree, near the round stones!'],
     carry: ["My blanket! You're the best.", 'Here — it belongs to the egg now.'],
     found: 'You found the fuzzy blanket! 🧣 Take it back to Biscuit.',
   },
@@ -101,9 +101,9 @@ const WARM: WarmDef[] = [
     ask: [
       'The egg! Yes! I was hoping somebody would ask me.',
       'I knitted a hop-scarf. Super warm. Super bouncy.',
-      'But first — race me! Cross the monkey bars at the playground and it is yours!',
+      'But first — race me! Cross the monkey bars by the tall pine, and it is yours!',
     ],
-    remind: ['Go on, cross the monkey bars! They are at the playground, past the slide.'],
+    remind: ['Go on, cross the monkey bars! They are by the tall pine, past the slide.'],
     carry: [
       "Whoa, you're quick! A deal is a deal.",
       'Here is the hop-scarf. Bounciest warm thing there is.',

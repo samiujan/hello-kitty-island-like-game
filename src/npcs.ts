@@ -34,7 +34,7 @@ const DEFS: NPCDef[] = [
     lines: [
       'Welcome to Kitten Village! Isn\'t it the softest place ever?',
       'I hid carrots all around the island. Ten points if you find one!',
-      'Once you learn to jump, try hopping over the plaza stones!',
+      'Once you learn to jump, try hopping over the round stones!',
     ],
   },
   {
@@ -44,7 +44,7 @@ const DEFS: NPCDef[] = [
     z: -4.4,
     facing: 2.4,
     lines: [
-      'This is my little cottage. The pink roof was my idea!',
+      'This is my little house. The pink roof was my idea!',
       'Honey tea at sunset? You\'re invited, of course.',
       'Sometimes I nap under the blossom tree. It\'s the best spot.',
     ],

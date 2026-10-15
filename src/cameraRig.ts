@@ -18,7 +18,7 @@ export class CameraRig {
   private distIndoor: number
   private pitch: number
   private dist: number
-  private tilted = true // the game starts in tilt mode
+  private tilted = false // start on the steep, playable camera; T tilts down
   private indoor = false
   private currentTarget = new THREE.Vector3()
   private offset = new THREE.Vector3()

@@ -204,22 +204,22 @@ if (typeof document !== 'undefined' && document.fonts) {
 /** Rounded-rect canvas label (transparent bg) used on signposts. */
 function makeLabelTexture(text: string, fg: string): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
-  canvas.width = 256
+  canvas.width = 340
   canvas.height = 96
   const ctx = canvas.getContext('2d')!
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 4
   const draw = () => {
-    ctx.clearRect(0, 0, 256, 96)
+    ctx.clearRect(0, 0, 340, 96)
     ctx.font = '700 46px "Baloo 2", system-ui, -apple-system, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.lineWidth = 10
     ctx.strokeStyle = 'rgba(90, 55, 35, 0.55)'
-    ctx.strokeText(text, 128, 54)
+    ctx.strokeText(text, 170, 54)
     ctx.fillStyle = fg
-    ctx.fillText(text, 128, 54)
+    ctx.fillText(text, 170, 54)
     tex.needsUpdate = true
   }
   draw()
@@ -488,10 +488,72 @@ function buildTorch(g: THREE.Group, colliders: Circle[], x: number, z: number): 
 
 // ---------------------------------------------------------------- plants
 
-function buildTree(g: THREE.Group, colliders: Circle[], fade: FadeProp[], x: number, z: number, s: number, blossom = false): void {
+/** Distinct silhouettes, so directions can name something a child can spot. */
+type TreeKind = 'round' | 'blossom' | 'pine' | 'palm'
+
+function buildTree(
+  g: THREE.Group,
+  colliders: Circle[],
+  fade: FadeProp[],
+  x: number,
+  z: number,
+  s: number,
+  kind: TreeKind = 'round',
+): void {
   const tree = new THREE.Group()
   tree.position.set(x, 0, z)
 
+  if (kind === 'pine') {
+    // tall conifer — deliberately the tallest thing around, so "the tall pine"
+    // is a landmark you can point at from anywhere
+    tree.add(mesh(new THREE.CylinderGeometry(0.22 * s, 0.36 * s, 1.3 * s, 10), matte(PAL.logDark), 0, 0.65 * s, 0))
+    const tiers = 4
+    for (let i = 0; i < tiers; i++) {
+      const t = i / (tiers - 1)
+      const cone = mesh(
+        new THREE.ConeGeometry((1.35 - t * 0.8) * s, (1.7 - t * 0.35) * s, 14),
+        matte(i % 2 === 0 ? PAL.grassDeep : PAL.leafDeep),
+        0,
+        (1.2 + i * 0.9) * s,
+        0,
+      )
+      tree.add(cone)
+    }
+    g.add(tree)
+    colliders.push({ x, z, r: 0.52 * s + 0.25 })
+    fade.push({ group: tree, center: new THREE.Vector3(x, 2.6 * s, z), radius: 1.55 * s })
+    return
+  }
+
+  if (kind === 'palm') {
+    const trunk = mesh(new THREE.CylinderGeometry(0.15 * s, 0.24 * s, 3.3 * s, 10), matte('#c9a06a'), 0, 1.65 * s, 0)
+    trunk.rotation.z = rr(-0.1, 0.1)
+    tree.add(trunk)
+    const frondMat = matte(PAL.leafDeep)
+    for (let i = 0; i < 6; i++) {
+      const arm = new THREE.Group()
+      arm.position.y = 3.2 * s
+      arm.rotation.y = (i / 6) * Math.PI * 2
+      const frond = new THREE.Mesh(new THREE.ConeGeometry(0.24 * s, 2.2 * s, 6), frondMat)
+      frond.rotation.z = -Math.PI / 2 + 0.62 // droop, rather than a flat starburst
+      frond.scale.set(1, 1, 0.42) // flatten the cone into a leaf blade
+      frond.position.set(0.85 * s, -0.12 * s, 0)
+      frond.castShadow = true
+      arm.add(frond)
+      tree.add(arm)
+    }
+    tree.add(mesh(new THREE.SphereGeometry(0.3 * s, 12, 10), matte('#d9b070'), 0, 3.2 * s, 0))
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2
+      tree.add(mesh(new THREE.SphereGeometry(0.12 * s, 10, 8), matte('#8a6a44'), Math.cos(a) * 0.27 * s, 2.95 * s, Math.sin(a) * 0.27 * s))
+    }
+    g.add(tree)
+    colliders.push({ x, z, r: 0.36 * s + 0.25 })
+    fade.push({ group: tree, center: new THREE.Vector3(x, 2.3 * s, z), radius: 1.5 * s })
+    return
+  }
+
+  const blossom = kind === 'blossom'
   const trunk = mesh(new THREE.CylinderGeometry(0.3 * s, 0.42 * s, 1.5 * s, 12), matte(PAL.log), 0, 0.75 * s, 0)
   tree.add(trunk)
   const roots = mesh(new THREE.SphereGeometry(0.62 * s, 14, 10), matte(PAL.logDark), 0, 0.1 * s, 0)
@@ -941,7 +1003,7 @@ function buildRoofSundae(g: THREE.Group, x: number, y: number, z: number): void 
 
 // ---------------------------------------------------------------- beach
 
-function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
+function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[], fade: FadeProp[]): void {
   // golden sand swept along the east shore — registered as walkable terrain
   const sandSpots: [number, number, number][] = [
     [20.5, 0, 4.6], [22.6, 2.6, 3.0], [22.6, -2.8, 3.0], [18.5, 4.5, 2.6], [18.5, -4.5, 2.6],
@@ -975,17 +1037,22 @@ function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
   stripes.repeat.set(4, 1)
   const ux = 21.2
   const uz = 3.2
+  const umbrella = new THREE.Group()
   const umbGh = groundHeightAt(ux, uz, bumps)
-  const pole = mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.3, 8), matte(PAL.logDark), ux, umbGh + 1.15, uz)
+  const pole = mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.3, 8), matte(PAL.logDark), 0, 1.15, 0)
   pole.rotation.z = 0.12
-  g.add(pole)
+  umbrella.add(pole)
   const canopy = new THREE.Mesh(
     new THREE.ConeGeometry(1.5, 0.6, 12),
     new THREE.MeshStandardMaterial({ map: stripes, roughness: 0.85 }),
   )
-  canopy.position.set(ux + 0.28, umbGh + 2.2, uz)
+  canopy.position.set(0.28, 2.2, 0)
   canopy.castShadow = true
-  g.add(canopy)
+  umbrella.add(canopy)
+  umbrella.position.set(ux, umbGh, uz)
+  g.add(umbrella)
+  // the canopy is wide and sits at head height — ghost it when it blocks the view
+  fade.push({ group: umbrella, center: new THREE.Vector3(ux, 2.2, uz), radius: 1.7 })
 
   // lounge chair
   const ch = new THREE.Group()
@@ -1014,11 +1081,69 @@ function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
   bk.add(mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.3, 12), matte('#7fc8d8'), 0, 0.15, 0))
   bk.add(mesh(new THREE.TorusGeometry(0.2, 0.02, 6, 14, Math.PI), matte(PAL.logDark), 0, 0.3, 0))
   g.add(bk)
+
+  // --- sandcastle: the beach's landmark ---
+  const kx = 17.2
+  const kz = -1.4
+  const castle = new THREE.Group()
+  castle.position.set(kx, groundHeightAt(kx, kz, bumps), kz)
+  castle.rotation.y = 0.4
+  const sandMat = matte(PAL.beachDeep)
+  castle.add(mesh(new THREE.CylinderGeometry(0.8, 0.95, 1.0, 8), sandMat, 0, 0.5, 0))
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2
+    castle.add(mesh(new THREE.BoxGeometry(0.2, 0.24, 0.2), sandMat, Math.cos(a) * 0.76, 1.11, Math.sin(a) * 0.76))
+  }
+  for (const [tx, tz] of [[-0.95, -0.85], [1.0, -0.8], [0.9, 0.95]] as [number, number][]) {
+    castle.add(mesh(new THREE.CylinderGeometry(0.26, 0.32, 1.4, 8), sandMat, tx, 0.7, tz))
+    castle.add(mesh(new THREE.ConeGeometry(0.34, 0.46, 8), sandMat, tx, 1.62, tz))
+  }
+  castle.add(mesh(new THREE.CircleGeometry(0.2, 12), matte('#a07a4e'), 0, 0.42, 0.94))
+  castle.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7, 6), matte(PAL.logDark), 0, 1.5, 0))
+  castle.add(mesh(new THREE.PlaneGeometry(0.36, 0.22), matte(PAL.blossomPink), 0.2, 1.72, 0))
+  g.add(castle)
+  colliders.push({ x: kx, z: kz, r: 1.15 })
+
+  // shells scattered along the sand
+  const shellColors = ['#ffd9e6', '#ffe9b8', '#cfe8f5', '#f7b8cf', '#fff6ec']
+  const shellSpots: [number, number][] = [
+    [19.4, -2.6], [20.6, 5.2], [18.2, 2.4], [21.4, -4.0], [16.8, 1.0], [19.8, 6.4], [17.6, -4.4], [22.2, 0.4],
+  ]
+  shellSpots.forEach(([sx, sz], i) => {
+    const shell = new THREE.Group()
+    shell.position.set(sx, groundHeightAt(sx, sz, bumps), sz)
+    shell.rotation.y = rand() * Math.PI * 2
+    const dome = mesh(new THREE.SphereGeometry(0.13, 12, 8), matte(shellColors[i % shellColors.length]), 0, 0.06, 0)
+    dome.scale.y = 0.6
+    shell.add(dome)
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2
+      shell.add(mesh(new THREE.SphereGeometry(0.04, 8, 6), matte(shellColors[(i + 1) % shellColors.length]), Math.cos(a) * 0.13, 0.07, Math.sin(a) * 0.13))
+    }
+    g.add(shell)
+  })
+
+  // a beach ball, because it is a beach
+  const ball = new THREE.Group()
+  ball.position.set(19.0, groundHeightAt(19.0, 0.2, bumps) + 0.22, 0.2)
+  const ballColors = ['#ff8fb4', '#fff6ec', '#7fc8f0']
+  for (let i = 0; i < 3; i++) {
+    ball.add(mesh(new THREE.SphereGeometry(0.22, 14, 10, (i / 3) * Math.PI * 2, Math.PI / 1.5), matte(ballColors[i]), 0, 0, 0))
+  }
+  g.add(ball)
+  colliders.push({ x: 19.0, z: 0.2, r: 0.26, h: 0.45 })
 }
 
 // ---------------------------------------------------------------- playground
 
-function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx: number, cz: number): Playground {
+function buildPlayground(
+  g: THREE.Group,
+  colliders: Circle[],
+  bumps: Bump[],
+  fade: FadeProp[],
+  cx: number,
+  cz: number,
+): Playground {
   // merry bench geometry — one source of truth for the mesh and the ride anchor
   const SEAT_R = 0.88
   const SEAT_TOP = 0.71
@@ -1141,31 +1266,38 @@ function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx:
   g.add(bars)
   colliders.push({ x: cx + 3.8, z: cz - 1.6, r: 0.3 })
 
+  // the ride frames stand between the camera and the kitten constantly
+  fade.push({ group: sw, center: new THREE.Vector3(cx + 2.8, 1.4, cz + 1.6), radius: 1.8 })
+  fade.push({ group: bars, center: new THREE.Vector3(cx + 3.8, 1.2, cz - 1.6), radius: 1.9 })
+  fade.push({ group: slide, center: new THREE.Vector3(cx - 0.8, 1.1, cz + 3.2), radius: 1.8 })
+  fade.push({ group: merry, center: new THREE.Vector3(cx - 2.3, 1.0, cz - 0.8), radius: 2.0 })
+
   return pg
 }
 
-function buildSignpost(g: THREE.Group, colliders: Circle[], x: number, z: number): void {
+function buildSignpost(g: THREE.Group, colliders: Circle[], fade: FadeProp[], x: number, z: number): void {
   const post = new THREE.Group()
   post.position.set(x, 0, z)
   const pole = mesh(new THREE.CylinderGeometry(0.09, 0.12, 1.7, 10), matte(PAL.logDark), 0, 0.85, 0)
   post.add(pole)
 
+  // plain words, and names a child can actually see from here
   const boards: { text: string; y: number; dir: 1 | -1; color: string }[] = [
-    { text: 'Plaza', y: 1.38, dir: 1, color: PAL.plank },
-    { text: 'Cottage', y: 0.92, dir: -1, color: PAL.log },
+    { text: 'Round Stones', y: 1.38, dir: 1, color: PAL.plank },
+    { text: 'Bear House', y: 0.92, dir: -1, color: PAL.log },
   ]
   for (const b of boards) {
     const board = new THREE.Group()
     board.position.y = b.y
     board.rotation.y = b.dir === 1 ? -0.5 : 2.6
-    const body = mesh(new RoundedBoxGeometry(1.15, 0.42, 0.1, 3, 0.05), matte(b.color), b.dir * 0.32, 0, 0)
+    const body = mesh(new RoundedBoxGeometry(1.5, 0.42, 0.1, 3, 0.05), matte(b.color), b.dir * 0.32, 0, 0)
     board.add(body)
-    const tip = mesh(new THREE.ConeGeometry(0.24, 0.3, 3), matte(b.color), b.dir * 0.98, 0, 0)
+    const tip = mesh(new THREE.ConeGeometry(0.24, 0.3, 3), matte(b.color), b.dir * 1.15, 0, 0)
     tip.rotation.z = b.dir * -Math.PI / 2
     tip.rotation.y = Math.PI
     board.add(tip)
     const label = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.92, 0.32),
+      new THREE.PlaneGeometry(1.24, 0.33),
       new THREE.MeshBasicMaterial({ map: makeLabelTexture(b.text, '#fff8ee'), transparent: true }),
     )
     label.position.set(b.dir * 0.3, 0, 0.06)
@@ -1174,6 +1306,7 @@ function buildSignpost(g: THREE.Group, colliders: Circle[], x: number, z: number
   }
   g.add(post)
   colliders.push({ x, z, r: 0.3 })
+  fade.push({ group: post, center: new THREE.Vector3(x, 1.2, z), radius: 0.9 })
 }
 
 // ---------------------------------------------------------------- extras
@@ -1312,7 +1445,7 @@ export function buildWorld(): World {
   buildMuseum(g, colliders, fadeProps, 0, -16, 0)
   buildShopSign(g, colliders, bumps, 2.2, -12.4, 0, 'Museum', '#fff3c8', '#d8a94e')
   buildSlushieHut(g, colliders, fadeProps, 11.5, -3.5, -1.4)
-  const playground = buildPlayground(g, colliders, bumps, -14.5, 11.8)
+  const playground = buildPlayground(g, colliders, bumps, fadeProps, -14.5, 11.8)
   const farm = buildFarm(g, colliders, bumps, 8, -15)
 
   // shop signage: ice cream at the cottage, barber at the tiny house
@@ -1323,26 +1456,32 @@ export function buildWorld(): World {
   buildShopSign(g, colliders, bumps, 0.7, 0.75, 0.3, 'Barber Shop', '#e8f4fb', '#7fb3d8')
   const barberPole = buildBarberPole(g, colliders, bumps, 1.17, 0.6)
   const spinners = [barberPole]
-  buildBeach(g, colliders, bumps)
+  buildBeach(g, colliders, bumps, fadeProps)
 
   // buildings & props
   buildHut(g, colliders, fadeProps, -8.3, -7.2, 0.6)
-  buildRoofSundae(g, -8.3, 4.28, -7.2) // giant soft-serve on the cottage roof
-  buildSignpost(g, colliders, 1.9, 5.4)
+  buildRoofSundae(g, -8.3, 4.28, -7.2) // giant soft-serve on Kuma's roof
+  buildSignpost(g, colliders, fadeProps, 1.9, 5.4)
   buildPicnic(g, colliders, 8.6, 1.2)
   buildSittingLogs(g, colliders, 9.8, 3.4, 0.35)
 
-  // trees
-  buildTree(g, colliders, fadeProps, 7.8, -9.2, 1.25)
+  // trees — a mix of silhouettes so directions can name something you can spot
+  buildTree(g, colliders, fadeProps, 7.8, -9.2, 1.25) // round tree by the museum
   buildTree(g, colliders, fadeProps, -6.2, -11.4, 1.1)
   buildTree(g, colliders, fadeProps, 11.6, -3.4, 0.95)
   buildTree(g, colliders, fadeProps, -12.2, 2.2, 1.2)
   buildTree(g, colliders, fadeProps, 8.6, 8.6, 1.05)
-  buildTree(g, colliders, fadeProps, -8.6, 11.0, 1.0)
-  buildTree(g, colliders, fadeProps, 4.6, -6.2, 0.85, true) // blossom tree by the plaza
-  buildTree(g, colliders, fadeProps, -3.2, 5.8, 0.8, true)
+  buildTree(g, colliders, fadeProps, -8.6, 11.0, 1.2, 'pine') // the tall pine by the playground
+  buildTree(g, colliders, fadeProps, 4.6, -6.2, 0.95, 'blossom') // the big pink blossom tree
+  buildTree(g, colliders, fadeProps, -3.2, 5.8, 0.8, 'blossom')
   buildTree(g, colliders, fadeProps, 13.8, 6.2, 0.9)
-  buildTree(g, colliders, fadeProps, -14.5, -6.8, 0.95, true)
+  buildTree(g, colliders, fadeProps, -14.5, -6.8, 0.95, 'blossom')
+  buildTree(g, colliders, fadeProps, 4.2, -13.6, 1.15, 'pine') // pine beside the museum
+  buildTree(g, colliders, fadeProps, 15.4, 8.4, 0.85, 'pine')
+  // palms along the beach
+  buildTree(g, colliders, fadeProps, 21.5, 5.6, 1.0, 'palm')
+  buildTree(g, colliders, fadeProps, 21.8, -5.2, 0.95, 'palm')
+  buildTree(g, colliders, fadeProps, 17.5, 7.2, 0.9, 'palm')
 
   // bushes
   const bushSpots: [number, number, number][] = [
