@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { PAL, matte, glossy } from './palette'
 
 export type Species = 'kitten' | 'bunny' | 'bear' | 'penguin' | 'puppy'
@@ -14,6 +15,8 @@ export interface AnimalRig {
   legFR: THREE.Group
   legBL: THREE.Group
   legBR: THREE.Group
+  armL: THREE.Group | null
+  armR: THREE.Group | null
   eyes: THREE.Mesh[]
   blob: THREE.Mesh
   headBaseY: number
@@ -352,6 +355,7 @@ export function buildAnimal(species: Species): AnimalRig {
   const cfg = SPECIES[species]
 
   const group = new THREE.Group()
+  group.scale.setScalar(1.12) // a touch bigger, so friends read from a distance
   const body = new THREE.Group()
   group.add(body)
 
@@ -368,28 +372,30 @@ export function buildAnimal(species: Species): AnimalRig {
     const leg = new THREE.Group()
     leg.position.set(lx, cfg.legY, lz)
     const foot = mesh(new THREE.SphereGeometry(cfg.legR, 14, 14), legMat, 0, -cfg.legY + cfg.legR * 0.9, 0)
-    foot.scale.set(1, 1.1, 1.25)
+    foot.scale.set(1.05, 1.05, 1.35)
     leg.add(foot)
     body.add(leg)
     legs.push(leg)
   }
 
-  // ---- body ----
-  const bodyMesh = mesh(new THREE.SphereGeometry(1, 26, 22), matte(cfg.bodyColor), 0, cfg.bodyScale[1] * 1.12, 0)
-  bodyMesh.scale.set(cfg.bodyScale[0] * cfg.chubby, cfg.bodyScale[1], cfg.bodyScale[2])
-  body.add(bodyMesh)
+  // ---- torso: a soft rounded box, not a bare sphere, so there is a chest,
+  //      a waist and shoulders for the outfit to sit on ----
+  const w = cfg.bodyScale[0] * cfg.chubby * 2
+  const h = cfg.bodyScale[1] * 2
+  const d = cfg.bodyScale[2] * 2
+  const bodyY = h / 2 + 0.04
+  body.add(mesh(new RoundedBoxGeometry(w, h, d, 4, Math.min(w, h, d) * 0.44), matte(cfg.bodyColor), 0, bodyY, 0))
 
-  if (cfg.bellyColor) {
-    const belly = mesh(
-      new THREE.SphereGeometry(1, 22, 20),
-      matte(cfg.bellyColor),
+  // lighter chest so the front reads separately from the back
+  body.add(
+    mesh(
+      new RoundedBoxGeometry(w * 0.66, h * 0.62, d * 0.3, 3, h * 0.26),
+      matte(cfg.bellyColor ?? lighten(cfg.bodyColor)),
       0,
-      cfg.bodyScale[1] * 1.05,
-      cfg.bodyScale[2] * 0.42,
-    )
-    belly.scale.set(cfg.bodyScale[0] * 0.78, cfg.bodyScale[1] * 0.82, cfg.bodyScale[2] * 0.55)
-    body.add(belly)
-  }
+      bodyY - h * 0.04,
+      d * 0.4,
+    ),
+  )
 
   if (cfg.patchColor) {
     const back = mesh(
@@ -401,6 +407,22 @@ export function buildAnimal(species: Species): AnimalRig {
     )
     back.scale.set(cfg.bodyScale[0] * 0.62, cfg.bodyScale[1] * 0.5, cfg.bodyScale[2] * 0.6)
     body.add(back)
+  }
+
+  // ---- arms (the penguin keeps its flippers instead) ----
+  const arms: THREE.Group[] = []
+  if (species !== 'penguin') {
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Group()
+      arm.position.set(side * (w / 2 - 0.02), bodyY + h * 0.2, 0)
+      arm.add(mesh(new THREE.CapsuleGeometry(cfg.legR * 0.9, h * 0.28, 4, 10), legMat, 0, -h * 0.18, 0))
+      const paw = mesh(new THREE.SphereGeometry(cfg.legR * 0.98, 12, 10), legMat, 0, -h * 0.33, 0)
+      paw.scale.set(1, 0.9, 1.2)
+      arm.add(paw)
+      arm.rotation.z = side * -0.26
+      body.add(arm)
+      arms.push(arm)
+    }
   }
 
   // ---- head ----
@@ -455,6 +477,9 @@ export function buildAnimal(species: Species): AnimalRig {
   const tail = makeTail(species, cfg)
   if (tail) body.add(tail)
 
+  // clothes and props, so each friend reads as themselves from across the island
+  addOutfit(species, body, head, cfg, bodyY)
+
   // soft blob shadow for grounding during jumps
   const blob = new THREE.Mesh(
     new THREE.CircleGeometry(cfg.bodyScale[0] * 1.25, 24),
@@ -475,6 +500,8 @@ export function buildAnimal(species: Species): AnimalRig {
     legFR: legs[1],
     legBL: legs[2],
     legBR: legs[3],
+    armL: arms[0] ?? null,
+    armR: arms[1] ?? null,
     eyes,
     blob,
     headBaseY: cfg.headY,
@@ -483,6 +510,100 @@ export function buildAnimal(species: Species): AnimalRig {
     blinkUntil: 0,
     species,
   }
+}
+
+/**
+ * Clothes and props. Every friend used to be a plain sphere, so a child could
+ * not tell them apart; these give each one a silhouette you can name.
+ */
+function addOutfit(
+  species: Species,
+  body: THREE.Group,
+  head: THREE.Group,
+  cfg: SpeciesConfig,
+  bodyY: number,
+): void {
+  const r = cfg.headRadius
+  const w = cfg.bodyScale[0] * cfg.chubby * 2
+  const h = cfg.bodyScale[1] * 2
+  const d = cfg.bodyScale[2] * 2
+  // sat just under the chin, and wide enough to clear the skull
+  const neckY = cfg.headY - r * 0.18
+  const collarR = r * 1.0
+
+  if (species === 'kitten') {
+    // a collar with a bell — the kitten you play is "the one with the bell"
+    const collar = mesh(new THREE.TorusGeometry(collarR, r * 0.13, 8, 22), matte('#7fc8d8'), 0, neckY, 0)
+    collar.rotation.x = Math.PI / 2
+    body.add(collar)
+    body.add(mesh(new THREE.SphereGeometry(r * 0.2, 12, 10), matte(PAL.flowerYellow, { roughness: 0.35 }), 0, neckY - r * 0.22, collarR * 0.92))
+    return
+  }
+
+  if (species === 'bunny') {
+    // dungarees
+    const denim = matte('#8fb8e0')
+    body.add(mesh(new RoundedBoxGeometry(w * 1.07, h * 0.42, d * 1.07, 3, 0.09), denim, 0, bodyY - h * 0.26, 0))
+    for (const side of [-1, 1]) {
+      const strap = mesh(new RoundedBoxGeometry(w * 0.17, h * 0.66, 0.05, 2, 0.02), denim, side * w * 0.24, bodyY + h * 0.18, d * 0.42)
+      strap.rotation.x = -0.1
+      body.add(strap)
+    }
+    body.add(mesh(new RoundedBoxGeometry(w * 0.3, h * 0.2, 0.04, 2, 0.02), matte('#a9cbe8'), 0, bodyY - h * 0.28, d * 0.55))
+    return
+  }
+
+  if (species === 'bear') {
+    // a knitted scarf, and the honey pot he is always carrying
+    const scarf = matte('#e05a6d')
+    const ring = mesh(new THREE.TorusGeometry(collarR, r * 0.18, 8, 20), scarf, 0, neckY, 0)
+    ring.rotation.x = Math.PI / 2
+    body.add(ring)
+    const end = mesh(new RoundedBoxGeometry(r * 0.42, r * 1.0, r * 0.22, 2, 0.05), scarf, r * 0.42, neckY - r * 0.52, r * 0.44)
+    end.rotation.z = 0.18
+    body.add(end)
+    const pot = mesh(new THREE.CylinderGeometry(r * 0.28, r * 0.23, r * 0.36, 14), matte('#e8a33c'), -w * 0.56, bodyY - h * 0.3, d * 0.12)
+    body.add(pot)
+    body.add(mesh(new THREE.CylinderGeometry(r * 0.3, r * 0.3, r * 0.09, 14), matte('#fff6ec'), -w * 0.56, bodyY - h * 0.12, d * 0.12))
+    return
+  }
+
+  if (species === 'penguin') {
+    // bobble hat and scarf — penguins are always cold
+    const cap = mesh(new THREE.SphereGeometry(r * 1.05, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.53), matte('#7fc8d8'), 0, r * 0.34, 0)
+    head.add(cap)
+    const brim = mesh(new THREE.TorusGeometry(r * 0.98, r * 0.15, 8, 22), matte('#fff6ec'), 0, r * 0.36, 0)
+    brim.rotation.x = Math.PI / 2
+    head.add(brim)
+    head.add(mesh(new THREE.SphereGeometry(r * 0.27, 12, 10), matte('#fff6ec'), 0, r * 1.48, 0))
+    const scarf = matte('#f5d547')
+    const ring = mesh(new THREE.TorusGeometry(collarR, r * 0.18, 8, 20), scarf, 0, neckY, 0)
+    ring.rotation.x = Math.PI / 2
+    body.add(ring)
+    const end = mesh(new RoundedBoxGeometry(r * 0.4, r * 0.95, r * 0.22, 2, 0.05), scarf, r * 0.42, neckY - r * 0.5, r * 0.44)
+    end.rotation.z = 0.2
+    body.add(end)
+    return
+  }
+
+  // puppy: a collar and a bandana
+  const collar = mesh(new THREE.TorusGeometry(collarR, r * 0.12, 8, 20), matte('#7fc8d8'), 0, neckY, 0)
+  collar.rotation.x = Math.PI / 2
+  body.add(collar)
+  const bandana = mesh(new THREE.ConeGeometry(r * 0.72, r * 0.9, 3), matte('#e05a6d'), 0, neckY - r * 0.5, r * 0.5)
+  bandana.rotation.x = Math.PI
+  bandana.rotation.y = Math.PI
+  bandana.scale.set(1, 1, 0.32)
+  body.add(bandana)
+}
+
+/** A paler version of a colour, for chests and bellies. */
+function lighten(hex: string, amount = 0.3): string {
+  const c = new THREE.Color(hex)
+  const hsl = { h: 0, s: 0, l: 0 }
+  c.getHSL(hsl)
+  c.setHSL(hsl.h, Math.max(0, hsl.s - 0.12), Math.min(1, hsl.l + amount))
+  return `#${c.getHexString()}`
 }
 
 /**
@@ -497,6 +618,12 @@ export function animateAnimal(rig: AnimalRig, time: number, walk: number, walkPh
   rig.legBR.rotation.x = s * swing
   rig.legFR.rotation.x = -s * swing
   rig.legBL.rotation.x = -s * swing
+
+  // arms swing opposite the legs
+  if (rig.armL && rig.armR) {
+    rig.armL.rotation.x = -s * swing * 0.7
+    rig.armR.rotation.x = s * swing * 0.7
+  }
 
   // body bob
   rig.body.position.y = Math.abs(Math.sin(walkPhase)) * 0.045 * walk + Math.sin(time * 2.1) * 0.008

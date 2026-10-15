@@ -40,9 +40,9 @@ const DEFS: NPCDef[] = [
   {
     name: 'Kuma',
     species: 'bear',
-    x: -6.3,
-    z: -4.4,
-    facing: 2.4,
+    x: -11.8,
+    z: -6.0,
+    facing: 1.4,
     lines: [
       'This is my little house. The pink roof was my idea!',
       'Honey tea at sunset? You\'re invited, of course.',

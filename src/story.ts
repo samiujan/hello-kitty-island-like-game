@@ -29,6 +29,8 @@ interface WarmDef {
   giver: string
   /** Village co-ordinates of the pick-up item; omitted for the monkey-bars errand. */
   spot?: { x: number; z: number }
+  /** Marker-only beacon, for an errand that has no pick-up (the monkey bars). */
+  beacon?: { x: number; z: number }
   spotLabel: string
   ask: string[]
   remind: string[]
@@ -97,13 +99,16 @@ const WARM: WarmDef[] = [
     id: 'scarf',
     giver: 'Momo',
     name: 'hop-scarf',
+    // the monkey bars themselves — a beacon so this errand is as findable as
+    // the three fetch errands, but no pick-up (crossing the bars is the task)
+    beacon: { x: -10.7 * S, z: 10.2 * S },
     spotLabel: 'cross the monkey bars',
     ask: [
       'The egg! Yes! I was hoping somebody would ask me.',
       'I knitted a hop-scarf. Super warm. Super bouncy.',
       'But first — race me! Cross the monkey bars by the tall pine, and it is yours!',
     ],
-    remind: ['Go on, cross the monkey bars! They are by the tall pine, past the slide.'],
+    remind: ['Go on, cross the monkey bars! They are by the tall pine — follow the golden light!'],
     carry: [
       "Whoa, you're quick! A deal is a deal.",
       'Here is the hop-scarf. Bounciest warm thing there is.',
@@ -208,10 +213,11 @@ export class Story {
 
   private buildItems(scene: THREE.Scene): void {
     for (const def of WARM) {
-      if (!def.spot) continue
+      const at = def.spot ?? def.beacon
+      if (!at) continue
       const prop = buildWarmProp(def.id)
-      const y = this.groundAt(def.spot.x, def.spot.z)
-      prop.group.position.set(def.spot.x, y, def.spot.z)
+      const y = this.groundAt(at.x, at.z)
+      prop.group.position.set(at.x, y, at.z)
       prop.group.visible = false
       scene.add(prop.group)
       this.items.set(def.id, prop)

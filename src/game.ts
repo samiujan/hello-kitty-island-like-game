@@ -88,8 +88,8 @@ export class Game {
     this.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 320)
     this.cameraRig = new CameraRig(this.camera, {
       yaw: THREE.MathUtils.degToRad(14),
-      pitch: THREE.MathUtils.degToRad(50),
-      dist: 18.5,
+      pitch: THREE.MathUtils.degToRad(42),
+      dist: 17,
       tiltPitch: THREE.MathUtils.degToRad(22),
       tiltDist: 16,
       indoorPitch: THREE.MathUtils.degToRad(58),

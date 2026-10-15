@@ -337,7 +337,7 @@ function buildTerrain(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void 
   // grass terraces — raised, walkable bumps (the groundHeightAt sampler must match these shapes)
   const patches: [number, number, number][] = [
     [-6.5, -11, 4.6], [7, -9.5, 4.2], [11.5, 2, 4.4], [-12, -1.5, 4.4], [9, 8, 4.6],
-    [-8.5, 10.5, 4.4], [3.5, -13.5, 3.6], [-3, 14, 3.4], [14.5, -5.5, 3.4], [-15, 6, 3.4],
+    [-6.6, 9.4, 3.5], [3.5, -13.5, 3.6], [-3, 14, 3.4], [14.5, -5.5, 3.4], [-15, 6, 3.4],
     [13.5, 7.5, 2.9], [-13.5, -8, 3.0], [0.5, 12.5, 2.6], [-16.5, -3.5, 2.6], [17, 1.5, 2.5],
   ]
   for (const [x, z, r] of patches) {
@@ -1147,6 +1147,9 @@ function buildPlayground(
   // merry bench geometry — one source of truth for the mesh and the ride anchor
   const SEAT_R = 0.88
   const SEAT_TOP = 0.71
+  // the playground sits on grass mounds; each frame is dropped onto the ground
+  // under it, otherwise the short ones sink in and are impossible to find
+  const onGround = (x: number, z: number) => groundHeightAt(x, z, bumps)
 
   const pg: Playground = {
     merry: new THREE.Group(),
@@ -1195,7 +1198,7 @@ function buildPlayground(
 
   // --- swings ---
   const sw = new THREE.Group()
-  sw.position.set(cx + 2.8, 0, cz + 1.6)
+  sw.position.set(cx + 2.8, onGround(cx + 2.8, cz + 1.6), cz + 1.6)
   for (const sx of [-1.25, 1.25]) {
     for (const sz of [-0.55, 0.55]) {
       const leg = mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.5, 8), matte(PAL.logDark), sx, 1.25, sz)
@@ -1220,7 +1223,7 @@ function buildPlayground(
 
   // --- slide ---
   const slide = new THREE.Group()
-  slide.position.set(cx - 0.8, 0, cz + 3.2)
+  slide.position.set(cx - 0.8, onGround(cx - 0.8, cz + 3.2), cz + 3.2)
   slide.rotation.y = 0.5
   for (const [lx, lz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]] as [number, number][]) {
     slide.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.6, 8), matte(PAL.logDark), lx, 0.8, lz))
@@ -1247,7 +1250,7 @@ function buildPlayground(
 
   // --- monkey bars ---
   const bars = new THREE.Group()
-  bars.position.set(cx + 3.8, 0, cz - 1.6)
+  bars.position.set(cx + 3.8, onGround(cx + 3.8, cz - 1.6), cz - 1.6)
   bars.rotation.y = -0.5
   for (const bx of [-1.55, 1.55]) {
     bars.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.9, 8), matte(PAL.logDark), bx, 0.95, 0))
@@ -1468,16 +1471,12 @@ export function buildWorld(): World {
   // trees — a mix of silhouettes so directions can name something you can spot
   buildTree(g, colliders, fadeProps, 7.8, -9.2, 1.25) // round tree by the museum
   buildTree(g, colliders, fadeProps, -6.2, -11.4, 1.1)
-  buildTree(g, colliders, fadeProps, 11.6, -3.4, 0.95)
-  buildTree(g, colliders, fadeProps, -12.2, 2.2, 1.2)
   buildTree(g, colliders, fadeProps, 8.6, 8.6, 1.05)
   buildTree(g, colliders, fadeProps, -8.6, 11.0, 1.2, 'pine') // the tall pine by the playground
   buildTree(g, colliders, fadeProps, 4.6, -6.2, 0.95, 'blossom') // the big pink blossom tree
   buildTree(g, colliders, fadeProps, -3.2, 5.8, 0.8, 'blossom')
-  buildTree(g, colliders, fadeProps, 13.8, 6.2, 0.9)
   buildTree(g, colliders, fadeProps, -14.5, -6.8, 0.95, 'blossom')
   buildTree(g, colliders, fadeProps, 4.2, -13.6, 1.15, 'pine') // pine beside the museum
-  buildTree(g, colliders, fadeProps, 15.4, 8.4, 0.85, 'pine')
   // palms along the beach
   buildTree(g, colliders, fadeProps, 21.5, 5.6, 1.0, 'palm')
   buildTree(g, colliders, fadeProps, 21.8, -5.2, 0.95, 'palm')
@@ -1485,9 +1484,9 @@ export function buildWorld(): World {
 
   // bushes
   const bushSpots: [number, number, number][] = [
-    [5.8, -4.0, 1.0], [-4.4, -3.6, 0.9], [2.6, 3.2, 0.8], [-2.2, 9.0, 1.0], [6.2, 5.4, 0.9],
-    [-6.8, 1.8, 0.85], [10.8, -6.8, 1.05], [-10.2, -4.2, 0.95], [3.4, 12.0, 0.9], [-5.4, -8.8, 0.8],
-    [12.4, 3.0, 0.8], [-11.8, 8.0, 0.9],
+    [5.8, -4.0, 1.0], [-4.4, -3.6, 0.9], [2.6, 3.2, 0.8], [-2.2, 9.0, 1.0],
+    [-6.8, 1.8, 0.85], [10.8, -6.8, 1.05], [-10.2, -4.2, 0.95], [3.4, 12.0, 0.9],
+    [12.4, 3.0, 0.8],
   ]
   for (const [x, z, s] of bushSpots) buildBush(g, colliders, x, z, s)
 
