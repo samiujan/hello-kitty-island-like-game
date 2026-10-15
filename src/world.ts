@@ -504,24 +504,25 @@ function buildTree(
   tree.position.set(x, 0, z)
 
   if (kind === 'pine') {
-    // tall conifer — deliberately the tallest thing around, so "the tall pine"
-    // is a landmark you can point at from anywhere
-    tree.add(mesh(new THREE.CylinderGeometry(0.22 * s, 0.36 * s, 1.3 * s, 10), matte(PAL.logDark), 0, 0.65 * s, 0))
+    // a slim conifer: a landmark by silhouette, not by bulk. A broad one just
+    // planted itself in front of whoever was standing nearby.
+    tree.add(mesh(new THREE.CylinderGeometry(0.17 * s, 0.28 * s, 1.0 * s, 10), matte(PAL.logDark), 0, 0.5 * s, 0))
     const tiers = 4
     for (let i = 0; i < tiers; i++) {
       const t = i / (tiers - 1)
-      const cone = mesh(
-        new THREE.ConeGeometry((1.35 - t * 0.8) * s, (1.7 - t * 0.35) * s, 14),
-        matte(i % 2 === 0 ? PAL.grassDeep : PAL.leafDeep),
-        0,
-        (1.2 + i * 0.9) * s,
-        0,
+      tree.add(
+        mesh(
+          new THREE.ConeGeometry((0.86 - t * 0.5) * s, (1.2 - t * 0.22) * s, 14),
+          matte(i % 2 === 0 ? PAL.grassDeep : PAL.leafDeep),
+          0,
+          (0.95 + i * 0.68) * s,
+          0,
+        ),
       )
-      tree.add(cone)
     }
     g.add(tree)
-    colliders.push({ x, z, r: 0.52 * s + 0.25 })
-    fade.push({ group: tree, center: new THREE.Vector3(x, 2.6 * s, z), radius: 1.55 * s })
+    colliders.push({ x, z, r: 0.36 * s + 0.22 })
+    fade.push({ group: tree, center: new THREE.Vector3(x, 1.6 * s, z), radius: 1.05 * s })
     return
   }
 
@@ -1472,11 +1473,11 @@ export function buildWorld(): World {
   buildTree(g, colliders, fadeProps, 7.8, -9.2, 1.25) // round tree by the museum
   buildTree(g, colliders, fadeProps, -6.2, -11.4, 1.1)
   buildTree(g, colliders, fadeProps, 8.6, 8.6, 1.05)
-  buildTree(g, colliders, fadeProps, -8.6, 11.0, 1.2, 'pine') // the tall pine by the playground
+  buildTree(g, colliders, fadeProps, -8.6, 11.0, 0.85, 'pine') // the pine by the playground
   buildTree(g, colliders, fadeProps, 4.6, -6.2, 0.95, 'blossom') // the big pink blossom tree
   buildTree(g, colliders, fadeProps, -3.2, 5.8, 0.8, 'blossom')
   buildTree(g, colliders, fadeProps, -14.5, -6.8, 0.95, 'blossom')
-  buildTree(g, colliders, fadeProps, 4.2, -13.6, 1.15, 'pine') // pine beside the museum
+  buildTree(g, colliders, fadeProps, 4.2, -13.6, 0.9, 'pine') // pine beside the museum
   // palms along the beach
   buildTree(g, colliders, fadeProps, 21.5, 5.6, 1.0, 'palm')
   buildTree(g, colliders, fadeProps, 21.8, -5.2, 0.95, 'palm')

@@ -106,9 +106,9 @@ const WARM: WarmDef[] = [
     ask: [
       'The egg! Yes! I was hoping somebody would ask me.',
       'I knitted a hop-scarf. Super warm. Super bouncy.',
-      'But first — race me! Cross the monkey bars by the tall pine, and it is yours!',
+      'But first — race me! Cross the monkey bars by the pine tree, and it is yours!',
     ],
-    remind: ['Go on, cross the monkey bars! They are by the tall pine — follow the golden light!'],
+    remind: ['Go on, cross the monkey bars! They are by the pine tree — follow the golden light!'],
     carry: [
       "Whoa, you're quick! A deal is a deal.",
       'Here is the hop-scarf. Bounciest warm thing there is.',
@@ -116,6 +116,14 @@ const WARM: WarmDef[] = [
     found: 'You crossed the monkey bars! 🐒 Go and tell Momo.',
   },
 ]
+
+/** Inventory icons, matching the emoji used in the banners. */
+const ITEM_ICON: Record<WarmId, string> = {
+  honey: '🍯',
+  pebble: '☀️',
+  blanket: '🧣',
+  scarf: '🧶',
+}
 
 const INTRO = {
   title: 'The Warmest Thing',
@@ -168,7 +176,8 @@ export class Story {
 
   private items = new Map<WarmId, WarmProp>()
   private trackerEl: HTMLDivElement
-  private trackerSlots: HTMLDivElement
+  private trackerList: HTMLDivElement
+  private trackerCount: HTMLElement
   private bannerEl: HTMLDivElement
   private bannerUntil = 0
   private cardEl: HTMLDivElement
@@ -189,10 +198,11 @@ export class Story {
     this.trackerEl.style.display = 'none'
     const title = document.createElement('div')
     title.className = 'tracker-title'
-    title.textContent = 'Warm things'
-    this.trackerSlots = document.createElement('div')
-    this.trackerSlots.className = 'tracker-slots'
-    this.trackerEl.append(title, this.trackerSlots)
+    title.innerHTML = 'Warm things <span class="tracker-count"></span>'
+    this.trackerCount = title.querySelector('.tracker-count')!
+    this.trackerList = document.createElement('div')
+    this.trackerList.className = 'tracker-list'
+    this.trackerEl.append(title, this.trackerList)
     hud.appendChild(this.trackerEl)
 
     this.bannerEl = document.createElement('div')
@@ -308,6 +318,7 @@ export class Story {
   barsCrossed(): void {
     if (!this.isSearching('scarf')) return
     this.progress.scarf = 'carrying'
+    this.renderTracker()
     this.banner(WARM.find((w) => w.id === 'scarf')!.found)
   }
 
@@ -388,13 +399,22 @@ export class Story {
     this.bannerUntil = performance.now() + ms
   }
 
+  /** The inventory: every warm thing, ticked off as it is collected. */
   private renderTracker(): void {
-    const done = this.collected()
-    this.trackerSlots.innerHTML =
-      WARM.map((w) => {
-        const filled = this.progress[w.id] === 'done'
-        return `<span class="slot${filled ? ' filled' : ''}">${filled ? '🧡' : '🤍'}</span>`
-      }).join('') + `<span class="count">${done}/4</span>`
+    this.trackerCount.textContent = `${this.collected()}/4`
+    this.trackerList.innerHTML = WARM.map((w) => {
+      const stage = this.progress[w.id]
+      const cls = stage === 'done' ? ' done' : stage === 'carrying' ? ' carrying' : ''
+      // carrying = found but not handed over yet, so show it as "in paw"
+      const mark = stage === 'done' ? '✓' : stage === 'carrying' ? '✋' : ''
+      return (
+        `<div class="tracker-item${cls}">` +
+        `<span class="ico">${ITEM_ICON[w.id]}</span>` +
+        `<span class="lbl">${w.name}</span>` +
+        `<span class="mark">${mark}</span>` +
+        `</div>`
+      )
+    }).join('')
   }
 
   private showIntro(): void {
