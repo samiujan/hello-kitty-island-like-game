@@ -48,14 +48,15 @@ const WARM: WarmDef[] = [
     id: 'honey',
     giver: 'Kuma',
     name: 'jar of honey',
-    spot: { x: 8.4 * S, z: -13.2 * S },
+    // right inside the farm gate, in the open — not tucked behind the fence
+    spot: { x: 5.6 * S, z: -15.0 * S },
     spotLabel: 'grab the honey jar',
     ask: [
       "Oh! You've heard about the egg? Then of course I'll help.",
       "The warmest thing I know is honey tea — but I've run right out of honey!",
-      'The farm by the museum keeps jars in the barn. Would you fetch one?',
+      'The farm by the museum keeps jars of it. Go in through the gate — you will see it glowing!',
     ],
-    remind: ['The honey is at the farm — look by the big red barn!'],
+    remind: ['The honey is at the farm, just inside the gate — follow the golden light!'],
     carry: [
       'You found it! Wonderful.',
       'Here — a jar of honey tea, still warm. Take it to the egg.',
@@ -159,9 +160,8 @@ export class Story {
   private convoNpc: string | null = null
   private convoUntil = 0
   private convoLines: string[] = []
-  private convoShown = 0
 
-  private items = new Map<WarmId, THREE.Group>()
+  private items = new Map<WarmId, WarmProp>()
   private trackerEl: HTMLDivElement
   private trackerSlots: HTMLDivElement
   private bannerEl: HTMLDivElement
@@ -209,13 +209,12 @@ export class Story {
   private buildItems(scene: THREE.Scene): void {
     for (const def of WARM) {
       if (!def.spot) continue
-      const g = buildWarmMesh(def.id)
+      const prop = buildWarmProp(def.id)
       const y = this.groundAt(def.spot.x, def.spot.z)
-      g.position.set(def.spot.x, y, def.spot.z)
-      g.userData.baseY = y
-      g.visible = false
-      scene.add(g)
-      this.items.set(def.id, g)
+      prop.group.position.set(def.spot.x, y, def.spot.z)
+      prop.group.visible = false
+      scene.add(prop.group)
+      this.items.set(def.id, prop)
     }
   }
 
@@ -231,20 +230,21 @@ export class Story {
   // ---------------------------------------------------------------- dialogue
 
   /**
-   * The lines this friend should say right now. When the player has been shown
-   * the whole beat the story advances, so an errand is handed out on the last
-   * line and a reward on the last line back.
+   * The lines this friend should say right now.
+   *
+   * The quest advances as soon as a beat *starts*, not after its last line:
+   * asking a friend must put the pick-up in the world immediately, even if the
+   * player walks off mid-sentence. The lines stay cached for the rest of the
+   * conversation so the speech never changes under the player's feet.
    */
   linesFor(npc: NPC): string[] {
     const now = performance.now()
     if (this.convoNpc !== npc.name || now >= this.convoUntil) {
       this.convoLines = this.beatFor(npc)
       this.convoNpc = npc.name
-      this.convoShown = 0
+      this.advance(npc.name)
     }
     this.convoUntil = now + CONVO_MS
-    this.convoShown++
-    if (this.convoShown === this.convoLines.length) this.finishBeat(npc.name)
     return this.convoLines
   }
 
@@ -263,12 +263,13 @@ export class Story {
     }
   }
 
-  private finishBeat(name: string): void {
+  private advance(name: string): void {
     const def = WARM.find((w) => w.giver === name)
     if (!def || this.phase !== 'active') return
     if (this.progress[def.id] === 'idle') {
       this.progress[def.id] = 'searching'
       this.renderTracker()
+      this.banner(`${def.giver} sent you after the ${def.name}! Look for the golden light ✨`, 5200)
     } else if (this.progress[def.id] === 'carrying') {
       this.progress[def.id] = 'done'
       this.renderTracker()
@@ -356,14 +357,17 @@ export class Story {
     if (this.bannerEl.style.display === 'block' && performance.now() > this.bannerUntil) {
       this.bannerEl.style.display = 'none'
     }
-    // float the findable items so they are easy to spot
-    for (const [id, g] of this.items) {
+    // a tall beacon over each findable item — these must be spottable from
+    // right across the island, not just from a few steps away
+    for (const [id, prop] of this.items) {
       const show = this.isSearching(id)
-      g.visible = show
+      prop.group.visible = show
       if (!show) continue
-      const baseY = (g.userData.baseY as number) ?? 0
-      g.position.y = baseY + 0.2 + Math.sin(t * 2.6 + id.length) * 0.07
-      g.rotation.y = t * 1.1
+      prop.holder.position.y = 0.3 + Math.sin(t * 2.6 + id.length) * 0.08
+      prop.holder.rotation.y = t * 1.3
+      prop.beam.rotation.y = t * 0.45
+      const mat = prop.beam.material as THREE.MeshBasicMaterial
+      mat.opacity = 0.72 + Math.sin(t * 2.2) * 0.22
     }
   }
 
@@ -411,54 +415,108 @@ export class Story {
 
 // ---------------------------------------------------------------- prop meshes
 
-/** A small, obviously-a-collectible prop for each findable warm thing. */
-function buildWarmMesh(id: WarmId): THREE.Group {
-  const g = new THREE.Group()
+interface WarmProp {
+  /** Anchored to the ground; holds the beacon and the bobbing item. */
+  group: THREE.Group
+  /** Bobs and spins — the item itself. */
+  holder: THREE.Group
+  beam: THREE.Mesh
+}
 
-  if (id === 'honey') {
-    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.15, 0.3, 14), matte('#e8a33c'))
-    jar.position.y = 0.15
-    jar.castShadow = true
-    g.add(jar)
-    const label = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.11, 14), matte('#ffd9e6'))
-    label.position.y = 0.15
-    g.add(label)
-    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 14), matte('#fff6ec'))
-    lid.position.y = 0.33
-    g.add(lid)
-  } else if (id === 'pebble') {
-    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), matte('#ffb877'))
-    rock.position.y = 0.14
-    rock.scale.set(1.25, 0.8, 1)
-    rock.castShadow = true
-    g.add(rock)
-    const small = new THREE.Mesh(new THREE.IcosahedronGeometry(0.085, 1), matte('#ffcf9e'))
-    small.position.set(0.17, 0.08, 0.07)
-    g.add(small)
-  } else if (id === 'blanket') {
-    const blanket = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.14, 0.4, 3, 0.05), matte('#b8d8f0'))
-    blanket.position.y = 0.08
-    blanket.castShadow = true
-    g.add(blanket)
-    const stripe = new THREE.Mesh(new RoundedBoxGeometry(0.47, 0.05, 0.1, 2, 0.02), matte('#fff6ec'))
-    stripe.position.y = 0.14
-    g.add(stripe)
+/**
+ * A pick-up with a tall golden beacon, so a child can spot it from anywhere on
+ * the island. The beacon is deliberately much taller than the kitten and taller
+ * than the grass terraces, and the item is scaled up on top of that.
+ */
+function buildWarmProp(id: WarmId): WarmProp {
+  const group = new THREE.Group()
+  const holder = new THREE.Group()
+  holder.scale.setScalar(1.5)
+  group.add(holder)
+
+  const add = (mesh: THREE.Mesh, y: number): THREE.Mesh => {
+    mesh.position.y = y
+    mesh.castShadow = true
+    holder.add(mesh)
+    return mesh
   }
 
-  // soft ring so the item reads as "pick me up"
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.26, 0.37, 26),
+  if (id === 'honey') {
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.15, 0.3, 14), matte('#e8a33c')), 0.15)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.11, 14), matte('#ffd9e6')), 0.15)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 14), matte('#fff6ec')), 0.33)
+  } else if (id === 'pebble') {
+    const rock = add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), matte('#ffb877')), 0.14)
+    rock.scale.set(1.25, 0.8, 1)
+    add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.085, 1), matte('#ffcf9e')), 0.08).position.x = 0.17
+  } else if (id === 'blanket') {
+    add(new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.14, 0.4, 3, 0.05), matte('#b8d8f0')), 0.08)
+    add(new THREE.Mesh(new RoundedBoxGeometry(0.47, 0.05, 0.1, 2, 0.02), matte('#fff6ec')), 0.14)
+  }
+
+  const beamTex = makeBeamTexture()
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.62, 3.6, 18, 1, true),
     new THREE.MeshBasicMaterial({
-      color: '#fff3c8',
+      map: beamTex,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.85,
       side: THREE.DoubleSide,
       depthWrite: false,
+      fog: false,
     }),
   )
-  ring.rotation.x = -Math.PI / 2
-  ring.position.y = -0.18
-  g.add(ring)
+  beam.position.y = 1.8
+  group.add(beam)
 
-  return g
+  // wide pool of light on the ground — this is what makes the spot readable
+  // from the steep camera, where a tall column would run off the top of frame
+  const pool = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.1, 3.1),
+    new THREE.MeshBasicMaterial({
+      map: makeGlowTexture(),
+      transparent: true,
+      depthWrite: false,
+      fog: false,
+    }),
+  )
+  pool.rotation.x = -Math.PI / 2
+  pool.position.y = 0.05
+  group.add(pool)
+
+  return { group, holder, beam }
+}
+
+/** Soft radial glow used for the pool of light under a pick-up. */
+function makeGlowTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64)
+  grad.addColorStop(0, 'rgba(255, 240, 185, 1)')
+  grad.addColorStop(0.45, 'rgba(255, 214, 120, 0.62)')
+  grad.addColorStop(1, 'rgba(255, 206, 100, 0)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, 128, 128)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+/** Vertical gradient for the beacon: solid at the base, fading out at the top. */
+function makeBeamTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 8
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')!
+  // canvas y=64 is the cylinder's bottom, y=0 its top
+  const grad = ctx.createLinearGradient(0, 64, 0, 0)
+  grad.addColorStop(0, 'rgba(255, 226, 150, 0.95)')
+  grad.addColorStop(0.4, 'rgba(255, 214, 120, 0.42)')
+  grad.addColorStop(1, 'rgba(255, 214, 120, 0)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, 8, 64)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
 }
