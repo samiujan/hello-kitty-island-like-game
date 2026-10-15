@@ -14,6 +14,8 @@ interface FadeProp {
 
 export interface Playground {
   merry: THREE.Group // spins via animateWorld
+  /** Local-space anchor of the bench the kitten rides on. */
+  merrySeat: { angle: number; radius: number; y: number }
   swingPivots: THREE.Group[]
   slide: THREE.Group
   slideTop: THREE.Vector3
@@ -28,7 +30,12 @@ export interface Playground {
  *  terrain heights all scale together so surfaces stay consistent. */
 export const WORLD_SCALE = 1.28
 
-export const ISLAND_RADIUS = 20.8 * WORLD_SCALE // playable bound
+/** Pre-scale radius of the island disc. The rim props, the lagoon ring and the
+ *  jet-ski bounds all derive from this, so growing the island keeps the shore
+ *  coherent instead of leaving props stranded inland. */
+const ISLAND_R = 26
+
+export const ISLAND_RADIUS = (ISLAND_R - 1.2) * WORLD_SCALE // playable bound
 
 /** A walkable terrain bump: a spherical grass terrace or a flat plateau (plaza). */
 export interface Bump {
@@ -305,7 +312,7 @@ function buildTerrain(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void 
   sea.position.y = -8.6
   g.add(sea)
   const foam = new THREE.Mesh(
-    new THREE.RingGeometry(21.5, 27, 64),
+    new THREE.RingGeometry(ISLAND_R - 0.5, ISLAND_R + 5, 64),
     matte('#e6f5fc', { roughness: 0.5 }),
   )
   foam.rotation.x = -Math.PI / 2
@@ -313,12 +320,12 @@ function buildTerrain(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void 
   g.add(foam)
 
   // main island body
-  const island = mesh(new THREE.CylinderGeometry(22, 21.6, 2.6, 64), matte(PAL.sand), 0, -1.3, 0)
+  const island = mesh(new THREE.CylinderGeometry(ISLAND_R, ISLAND_R - 0.4, 2.6, 64), matte(PAL.sand), 0, -1.3, 0)
   island.castShadow = false
   g.add(island)
 
   // rounded dirt skirt below (floating-diorama feel)
-  const skirt = mesh(new THREE.CylinderGeometry(21.4, 8, 4.4, 48), matte(PAL.dirt), 0, -4.6, 0)
+  const skirt = mesh(new THREE.CylinderGeometry(ISLAND_R - 0.6, 8, 4.4, 48), matte(PAL.dirt), 0, -4.6, 0)
   skirt.castShadow = false
   g.add(skirt)
   // rounded bottom tip — must stay fully BELOW the island (top edge < -2.6)
@@ -373,7 +380,7 @@ function buildTerrain(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void 
 
   // edge rocks poking out of the rim — solid, with colliders
   const rimSpots: [number, number][] = [
-    [4.2, -21], [10, -18.5], [-3.4, 21], [-16, -13.5], [19.5, 8], [-20, 6.5], [16, -12], [-11, 18],
+    [5, -25], [12, -22], [-4, 25], [-19, -16], [23, 9.5], [-24, 8], [19, -14], [-13, 21.5],
   ]
   for (const [x, z] of rimSpots) {
     const size = rr(0.8, 1.5)
@@ -606,15 +613,15 @@ function buildHut(g: THREE.Group, colliders: Circle[], fade: FadeProp[], x: numb
   const knob = mesh(new THREE.SphereGeometry(0.07, 10, 10), matte(PAL.flowerYellow, { roughness: 0.4 }), 0.32, 1.0, 1.6)
   hut.add(knob)
 
-  // windows
+  // windows — the glass must sit proud of the wall face (z = 1.5) or it z-fights it
   for (const side of [-1, 1]) {
-    const frame = mesh(new THREE.TorusGeometry(0.38, 0.075, 10, 22), matte(PAL.plankDark), side * 1.05, 1.6, 1.52)
+    const frame = mesh(new THREE.TorusGeometry(0.38, 0.075, 10, 22), matte(PAL.plankDark), side * 1.05, 1.6, 1.55)
     hut.add(frame)
-    const glass = mesh(new THREE.CircleGeometry(0.36, 22), matte(PAL.white, { roughness: 0.3 }), side * 1.05, 1.6, 1.5)
+    const glass = mesh(new THREE.CircleGeometry(0.36, 22), matte(PAL.white, { roughness: 0.3 }), side * 1.05, 1.6, 1.53)
     hut.add(glass)
-    const bar = mesh(new THREE.BoxGeometry(0.72, 0.05, 0.05), matte(PAL.plankDark), side * 1.05, 1.6, 1.53)
+    const bar = mesh(new THREE.BoxGeometry(0.72, 0.05, 0.05), matte(PAL.plankDark), side * 1.05, 1.6, 1.57)
     hut.add(bar)
-    const bar2 = mesh(new THREE.BoxGeometry(0.05, 0.72, 0.05), matte(PAL.plankDark), side * 1.05, 1.6, 1.53)
+    const bar2 = mesh(new THREE.BoxGeometry(0.05, 0.72, 0.05), matte(PAL.plankDark), side * 1.05, 1.6, 1.57)
     hut.add(bar2)
   }
 
@@ -774,11 +781,11 @@ function buildTinyHouse(
   const knob = mesh(new THREE.SphereGeometry(0.035, 8, 8), matte(PAL.flowerYellow, { roughness: 0.4 }), 0.15, 0.54, 0.77)
   h.add(knob)
 
-  // two tiny round windows
+  // two tiny round windows — glass proud of the wall face (z = 0.7) to avoid z-fighting
   for (const side of [-1, 1]) {
-    const frame = mesh(new THREE.TorusGeometry(0.14, 0.04, 8, 16), matte(PAL.plankDark), side * 0.52, 0.85, 0.71)
+    const frame = mesh(new THREE.TorusGeometry(0.14, 0.04, 8, 16), matte(PAL.plankDark), side * 0.52, 0.85, 0.75)
     h.add(frame)
-    const glass = mesh(new THREE.CircleGeometry(0.125, 16), matte(PAL.white, { roughness: 0.3 }), side * 0.52, 0.85, 0.705)
+    const glass = mesh(new THREE.CircleGeometry(0.125, 16), matte(PAL.white, { roughness: 0.3 }), side * 0.52, 0.85, 0.73)
     h.add(glass)
   }
 
@@ -937,7 +944,7 @@ function buildRoofSundae(g: THREE.Group, x: number, y: number, z: number): void 
 function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
   // golden sand swept along the east shore — registered as walkable terrain
   const sandSpots: [number, number, number][] = [
-    [16.5, 0, 4.6], [18.6, 2.6, 3.0], [18.6, -2.8, 3.0], [14.5, 4.5, 2.6], [14.5, -4.5, 2.6],
+    [20.5, 0, 4.6], [22.6, 2.6, 3.0], [22.6, -2.8, 3.0], [18.5, 4.5, 2.6], [18.5, -4.5, 2.6],
   ]
   for (const [x, z, r] of sandSpots) {
     const sand = mesh(new THREE.SphereGeometry(r, 26, 18), matte(PAL.beach), x, 0.0, z)
@@ -949,14 +956,14 @@ function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
 
   // shallow lagoon ringing the island + foam at the shoreline
   const lagoon = new THREE.Mesh(
-    new THREE.RingGeometry(22.3, 55, 48),
+    new THREE.RingGeometry(ISLAND_R + 0.3, 55, 48),
     new THREE.MeshStandardMaterial({ color: PAL.lagoon, transparent: true, opacity: 0.92, roughness: 0.35 }),
   )
   lagoon.rotation.x = -Math.PI / 2
   lagoon.position.y = -1.9
   g.add(lagoon)
   const foam = new THREE.Mesh(
-    new THREE.RingGeometry(21.8, 22.6, 48),
+    new THREE.RingGeometry(ISLAND_R - 0.2, ISLAND_R + 0.6, 48),
     new THREE.MeshStandardMaterial({ color: PAL.foam, transparent: true, opacity: 0.75, roughness: 0.6 }),
   )
   foam.rotation.x = -Math.PI / 2
@@ -966,7 +973,7 @@ function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
   // beach umbrella (striped canopy)
   const stripes = makeStripeTexture()
   stripes.repeat.set(4, 1)
-  const ux = 17.2
+  const ux = 21.2
   const uz = 3.2
   const umbGh = groundHeightAt(ux, uz, bumps)
   const pole = mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.3, 8), matte(PAL.logDark), ux, umbGh + 1.15, uz)
@@ -982,8 +989,8 @@ function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
 
   // lounge chair
   const ch = new THREE.Group()
-  const chGh = groundHeightAt(16.1, 1.7, bumps)
-  ch.position.set(16.1, chGh + 0.12, 1.7)
+  const chGh = groundHeightAt(20.1, 1.7, bumps)
+  ch.position.set(20.1, chGh + 0.12, 1.7)
   ch.rotation.y = -2.4
   const frame = matte('#fff8ec')
   const seat = mesh(new RoundedBoxGeometry(0.72, 0.09, 1.7, 3, 0.04), frame, 0, 0.42, 0)
@@ -999,11 +1006,11 @@ function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
     ch.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.42, 8), matte(PAL.logDark), lx, 0.21, lz))
   }
   g.add(ch)
-  colliders.push({ x: 16.1, z: 1.7, r: 0.55, h: 0.6 })
+  colliders.push({ x: 20.1, z: 1.7, r: 0.55, h: 0.6 })
 
   // bucket
   const bk = new THREE.Group()
-  bk.position.set(17.9, groundHeightAt(17.9, 1.1, bumps) + 0.02, 1.1)
+  bk.position.set(21.9, groundHeightAt(21.9, 1.1, bumps) + 0.02, 1.1)
   bk.add(mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.3, 12), matte('#7fc8d8'), 0, 0.15, 0))
   bk.add(mesh(new THREE.TorusGeometry(0.2, 0.02, 6, 14, Math.PI), matte(PAL.logDark), 0, 0.3, 0))
   g.add(bk)
@@ -1012,8 +1019,13 @@ function buildBeach(g: THREE.Group, colliders: Circle[], bumps: Bump[]): void {
 // ---------------------------------------------------------------- playground
 
 function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx: number, cz: number): Playground {
+  // merry bench geometry — one source of truth for the mesh and the ride anchor
+  const SEAT_R = 0.88
+  const SEAT_TOP = 0.71
+
   const pg: Playground = {
     merry: new THREE.Group(),
+    merrySeat: { angle: 0, radius: SEAT_R, y: SEAT_TOP },
     swingPivots: [],
     slide: new THREE.Group(),
     slideTop: new THREE.Vector3(),
@@ -1026,7 +1038,7 @@ function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx:
 
   // --- merry-go-round (walkable platform + spinning top) ---
   const merry = new THREE.Group()
-  merry.position.set(cx - 1.6, 0, cz - 0.6)
+  merry.position.set(cx - 2.3, 0, cz - 0.8)
   merry.add(mesh(new THREE.CylinderGeometry(1.75, 1.85, 0.3, 26), matte(PAL.plankDark), 0, 0.15, 0))
   const disc = mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.18, 26), matte(PAL.blossomPink), 0, 0.42, 0)
   disc.castShadow = true
@@ -1039,13 +1051,26 @@ function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx:
   const topRing = mesh(new THREE.TorusGeometry(1.18, 0.055, 8, 26), matte(PAL.hutPurple), 0, 1.42, 0)
   topRing.rotation.x = Math.PI / 2
   merry.add(topRing)
+
+  // a little bench under each grab pole, facing outward — the kitten rides the first
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2
+    const seat = new THREE.Group()
+    seat.position.set(Math.cos(a) * SEAT_R, 0, Math.sin(a) * SEAT_R)
+    seat.rotation.y = Math.PI / 2 - a // local +z points outward, radially
+    seat.add(mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.18, 8), matte(PAL.logDark), 0, SEAT_TOP - 0.135, 0))
+    seat.add(mesh(new RoundedBoxGeometry(0.48, 0.09, 0.44, 3, 0.035), matte(PAL.blossomPink), 0, SEAT_TOP - 0.045, 0))
+    seat.add(mesh(new RoundedBoxGeometry(0.46, 0.3, 0.08, 3, 0.03), matte(PAL.hutPurple), 0, SEAT_TOP + 0.16, -0.2))
+    merry.add(seat)
+  }
+
   pg.merry = merry
   g.add(merry)
-  bumps.push({ x: cx - 1.6, z: cz - 0.6, r: 1.8, h: 0.48, flat: true })
+  bumps.push({ x: cx - 2.3, z: cz - 0.8, r: 1.8, h: 0.48, flat: true })
 
   // --- swings ---
   const sw = new THREE.Group()
-  sw.position.set(cx + 1.9, 0, cz + 1.9)
+  sw.position.set(cx + 2.8, 0, cz + 1.6)
   for (const sx of [-1.25, 1.25]) {
     for (const sz of [-0.55, 0.55]) {
       const leg = mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.5, 8), matte(PAL.logDark), sx, 1.25, sz)
@@ -1066,11 +1091,11 @@ function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx:
     pivot.add(mesh(new RoundedBoxGeometry(0.56, 0.07, 0.32, 3, 0.03), matte(PAL.blossomPink), 0, -1.68, 0))
   }
   g.add(sw)
-  colliders.push({ x: cx + 1.9, z: cz + 1.9, r: 0.3 })
+  colliders.push({ x: cx + 2.8, z: cz + 1.6, r: 0.3 })
 
   // --- slide ---
   const slide = new THREE.Group()
-  slide.position.set(cx, 0, cz + 2.9)
+  slide.position.set(cx - 0.8, 0, cz + 3.2)
   slide.rotation.y = 0.5
   for (const [lx, lz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]] as [number, number][]) {
     slide.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.6, 8), matte(PAL.logDark), lx, 0.8, lz))
@@ -1093,11 +1118,11 @@ function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx:
   pg.slideBottom.set(0, 0.18, 3.1)
   pg.slideExit.set(0, 0, 3.9)
   g.add(slide)
-  colliders.push({ x: cx, z: cz + 2.9, r: 0.2 })
+  colliders.push({ x: cx - 0.8, z: cz + 3.2, r: 0.2 })
 
   // --- monkey bars ---
   const bars = new THREE.Group()
-  bars.position.set(cx + 3.4, 0, cz - 1.4)
+  bars.position.set(cx + 3.8, 0, cz - 1.6)
   bars.rotation.y = -0.5
   for (const bx of [-1.55, 1.55]) {
     bars.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.9, 8), matte(PAL.logDark), bx, 0.95, 0))
@@ -1114,7 +1139,7 @@ function buildPlayground(g: THREE.Group, colliders: Circle[], bumps: Bump[], cx:
   pg.barsFrom.set(-1.35, 1.2, 0)
   pg.barsTo.set(1.35, 1.2, 0)
   g.add(bars)
-  colliders.push({ x: cx + 3.4, z: cz - 1.4, r: 0.3 })
+  colliders.push({ x: cx + 3.8, z: cz - 1.6, r: 0.3 })
 
   return pg
 }

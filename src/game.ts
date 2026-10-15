@@ -149,10 +149,10 @@ export class Game {
       { name: 'enter the Slushie Shop', x: 8.94 * 1.28, z: -3.06 * 1.28, range: ENTER_RANGE, kind: 'interior', interior: this.interiors.slushie },
       { name: 'enter the Museum', x: 0, z: -12.4 * 1.28, range: ENTER_RANGE, kind: 'interior', interior: this.interiors.museum },
       { name: 'ride the jet ski', x: JETSKI_PARKED.x, z: JETSKI_PARKED.z, range: 4.2, kind: 'jetski' },
-      { name: 'ride the merry-go-round', x: -16.1 * 1.28, z: 11.2 * 1.28, range: 4.2, kind: 'ride', ride: 'merry' },
-      { name: 'sit on the swing', x: -12.6 * 1.28, z: 13.7 * 1.28, range: 3.4, kind: 'ride', ride: 'swing' },
-      { name: 'ride the slide', x: -14.5 * 1.28, z: 14.7 * 1.28, range: 4.2, kind: 'ride', ride: 'slide' },
-      { name: 'cross the monkey bars', x: -11.1 * 1.28, z: 10.4 * 1.28, range: 3.6, kind: 'ride', ride: 'bars' },
+      { name: 'ride the merry-go-round', x: -16.8 * 1.28, z: 11.0 * 1.28, range: 4.2, kind: 'ride', ride: 'merry' },
+      { name: 'sit on the swing', x: -11.7 * 1.28, z: 13.4 * 1.28, range: 3.4, kind: 'ride', ride: 'swing' },
+      { name: 'ride the slide', x: -15.3 * 1.28, z: 15.0 * 1.28, range: 4.2, kind: 'ride', ride: 'slide' },
+      { name: 'cross the monkey bars', x: -10.7 * 1.28, z: 10.2 * 1.28, range: 3.6, kind: 'ride', ride: 'bars' },
     ]
     this.doorHint = document.createElement('div')
     this.doorHint.className = 'bubble hint'
@@ -274,13 +274,14 @@ export class Game {
 
   private startRide(door: DoorTrigger): void {
     const kind = door.ride!
-    const pg = this.world.playground
-    const a: Activity = { kind, t: 0, dur: kind === 'slide' ? 1.6 : kind === 'bars' ? 2.6 : Infinity, savedPos: this.player.position.clone() }
-    this.activity = a
-    if (kind === 'slide') {
-      this.player.teleport(0, 0, 0)
+    const a: Activity = {
+      kind,
+      t: 0,
+      dur: kind === 'slide' ? 1.6 : kind === 'bars' ? 2.6 : Infinity,
+      savedPos: this.player.position.clone(),
     }
-    void pg
+    this.activity = a
+    this.player.velocity.set(0, 0, 0) // no leftover walk momentum on the camera
   }
 
   private endRide(): void {
@@ -295,6 +296,7 @@ export class Game {
     this.player.teleport(exit.x, gy, exit.z, this.player.rig.group.rotation.y)
     this.activity = null
     this.player.rig.blob.visible = true
+    this.player.rig.body.rotation.x = 0 // clear the seated/hanging pose
   }
 
   private tickRide(dt: number, t: number): void {
@@ -306,10 +308,16 @@ export class Game {
     rig.group.rotation.y = this.player.rig.group.rotation.y
 
     if (a.kind === 'merry') {
-      const v = pg.merry.localToWorld(this.tmpV.set(1.0, 0.82, 0))
-      rig.group.position.copy(v)
-      const worldAngle = pg.merry.rotation.y
-      rig.group.rotation.y = worldAngle + Math.PI / 2
+      const seat = pg.merrySeat
+      const local = this.tmpV.set(
+        Math.cos(seat.angle) * seat.radius,
+        seat.y,
+        Math.sin(seat.angle) * seat.radius,
+      )
+      rig.group.position.copy(pg.merry.localToWorld(local))
+      // sit on the bench, facing outward the same way the bench does
+      rig.group.rotation.y = pg.merry.rotation.y + (Math.PI / 2 - seat.angle)
+      rig.body.rotation.x = 0.3
     } else if (a.kind === 'swing') {
       const v = pg.swingPivots[0].localToWorld(this.tmpV.set(0, -1.55, 0))
       rig.group.position.copy(v)
@@ -354,6 +362,8 @@ export class Game {
       }
     }
     animateAnimal(rig, t, 0, 0)
+    // keep the logical player on the ride so the camera & shadow follow it
+    this.player.position.copy(rig.group.position)
     const gy = this.groundAt(rig.group.position.x, rig.group.position.z)
     rig.blob.position.y = gy + 0.02 - rig.group.position.y
     ;(rig.blob.material as THREE.MeshBasicMaterial).opacity = 0.1

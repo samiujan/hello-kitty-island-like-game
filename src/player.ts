@@ -3,7 +3,7 @@ import { buildAnimal, animateAnimal, type AnimalRig } from './cat'
 import { Input } from './input'
 import { resolveCollisions, type Circle } from './colliders'
 
-const MOVE_SPEED = 4.4
+const MOVE_SPEED = 4.4 // u/s — the original, reasonable pace (shared by keyboard & tap-to-move)
 const ACCEL = 26
 const GRAVITY = 26
 const JUMP_VELOCITY = 9.4
@@ -101,9 +101,9 @@ export class Player {
     } else {
       const cos = Math.cos(cameraYaw)
       const sin = Math.sin(cameraYaw)
-      // screen up (-Z world at yaw 0); rotate by camera yaw
-      targetVx = axis.x * cos + axis.y * sin
-      targetVz = -axis.y * cos + axis.x * sin
+      // screen up (-Z world at yaw 0); rotate by camera yaw, then scale to move speed
+      targetVx = (axis.x * cos + axis.y * sin) * MOVE_SPEED
+      targetVz = (-axis.y * cos + axis.x * sin) * MOVE_SPEED
     }
 
     // smooth acceleration toward target velocity

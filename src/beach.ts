@@ -3,12 +3,13 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { PAL, matte } from './palette'
 
 /** World-space anchor points for the jet ski ride (the island group is scaled,
- *  but the ski lives in the unscaled scene root). */
-export const JETSKI_PARKED = new THREE.Vector3(29.8, -2.43, 0.8)
-export const BEACH_SPOT = new THREE.Vector3(24.4, 0, 0)
+ *  but the ski lives in the unscaled scene root). These track the island rim:
+ *  the disc's radius is 26 pre-scale → 26 * 1.28 = 33.28 world units. */
+export const JETSKI_PARKED = new THREE.Vector3(34.9, -2.43, 0.8)
+export const BEACH_SPOT = new THREE.Vector3(29.5, 0, 0)
 export const WATER_Y = -2.43
-export const RIDE_MIN_R = 29.5
-export const RIDE_MAX_R = 64
+export const RIDE_MIN_R = 34.5
+export const RIDE_MAX_R = 68
 
 /** A cute round jet ski. Faces +Z. */
 export function buildJetSki(): THREE.Group {

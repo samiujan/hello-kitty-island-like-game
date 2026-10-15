@@ -27,7 +27,7 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# Environment variables
+# Environment variables (ignore all, keep the example)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
